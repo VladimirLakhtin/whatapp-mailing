@@ -4,15 +4,15 @@ import os
 import random
 import re
 import sys
-import time
 from typing import List
 
 from PyQt5.QtWidgets import (QApplication, QWidget, QPushButton, QFileDialog,
                              QVBoxLayout, QHBoxLayout, QTextEdit, QLabel)
-from pynput.keyboard import Key, Controller
-import pywhatkit as w
+
+from manager import WhatsAppManager
 
 logger = logging.getLogger()
+logger.setLevel('INFO')
 
 
 class Window(QWidget):
@@ -21,14 +21,14 @@ class Window(QWidget):
 
     def __init__(self):
         super(Window, self).__init__()
-        self.keyboard = Controller()
+        self.manager = WhatsAppManager()
         self.workdir = ''
-        self.initUI()
-
-    def initUI(self):
         self.image = None
         self.numbers = []
         self.msg = 'Введите сообщение...'
+        self.initUI()
+
+    def initUI(self):
 
         self.count_numbers = QLabel('Количество номеров: -')
         self.time_to_send = QLabel('Прогнозируемое время рассылки: -')
@@ -68,45 +68,36 @@ class Window(QWidget):
         self.cancel_btn.clicked.connect(partial(self.back_menu,False))
         self.send_btn.clicked.connect(self.start_sending)
 
-    def send_message(self, number) -> None:
-        """Send one message"""
-
-        try:
-            if self.image:
-                w.sendwhats_image(
-                    img_path=self.image,
-                    caption=self.msg,
-                    receiver=number,
-                )
-            else:
-                w.sendwhatmsg_instantly(
-                    phone_no=number,
-                    message=self.msg,
-                    tab_close=True
-                )
-                self.keyboard.press(Key.enter)
-                self.keyboard.release(Key.enter)
-                time.sleep(random.randint(10, 50))
-        except Exception as e:
-            logger.error(str(e))
-        else:
-            logger.info(f"Send message to number: {number}")
-
     def start_sending(self) -> None:
         """Start sending messages"""
 
         logger.info("Start sending messages")
         for i, number in enumerate(self.numbers):
             self.msg = self.random_message_transformer(self.msg)
-            self.send_message(number)
+            try:
+                if self.image:
+                    self.manager.sendwhats_image(
+                        img_path=self.image,
+                        caption=self.msg,
+                        receiver=number,
+                    )
+                else:
+                    self.manager.sendwhatmsg_instantly(
+                        phone_no=number,
+                        message=self.msg,
+                    )
+            except Exception as e:
+                logger.error(str(e))
+            else:
+                logger.info(f"Send message to number: {number}")
 
     @classmethod
     def random_message_transformer(cls, msg: str) -> str:
-        """Replace symbols in message to increase it unique"""
+        """Replace symbols in message to increase it's unique"""
 
         return ''.join([
             cls.sub_letters[sym]
-            if sym in cls.sub_letters and random.uniform(0, 1) > 0.5
+            if sym in cls.sub_letters and random.random() > 0.5
             else sym
             for i, sym in enumerate(msg)
         ])
@@ -117,6 +108,7 @@ class Window(QWidget):
         file_path = QFileDialog.getOpenFileName()[0]
         if not file_path.endswith('.txt'):
             logger.error("File with numbers should ends with: '.txt'")
+            return
 
         with open(file_path, 'r', encoding='utf-8') as file:
             numbers = file.readlines()
@@ -132,9 +124,9 @@ class Window(QWidget):
         """Transform the numbers to the correct format"""
 
         return [
-            '+7' + re.sub(r'[\(\)\- "\n+]', '', num)[1:]
-            for num in numbers
-            if len(num) > 10
+            '+7' + re.sub(r'[\(\)\- "\n+]', '', number)[1:]
+            for number in numbers
+            if len(number) > 10
         ]
 
     @staticmethod
@@ -184,6 +176,7 @@ class Window(QWidget):
         image_path = QFileDialog.getOpenFileName()[0]
         if not image_path.endswith(('.jpeg', '.jpg', '.png')):
             logger.error("Image file should ends with: '.jpeg', '.jpg', '.png'")
+            return
         self.image = image_path
         image_filename = os.path.split(image_path)[-1]
         self.image_text.setText(f"Выбрано изображение: {image_filename}")
@@ -191,7 +184,6 @@ class Window(QWidget):
 
 if __name__ == "__main__":
     logging.basicConfig(
-        level='DEBUG',
         filename='app_logs.log',
         filemode='a',
         format="%(asctime)s || %(levelname)s || %(message)s",
