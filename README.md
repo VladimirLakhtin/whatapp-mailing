@@ -15,11 +15,19 @@
 **1. Сlone Repository**
 ```sh
 git clone https://github.com/VladimirLakhtin/whatsapp-mailing
-
 ```
-**2. Run the app**
+**2. Install requirements.txt**
+```sh
+pip3 install -r requirements.txt 
+```
+**3. Run the app**
 ```sh
 python3 app.py
+```
+
+## Packaging into .exe
+```
+pyinstaller --noconfirm --onefile --windowed --icon "resourses/whatsapp-mailing.ico" --add-data "manager.py;." --add-data "venv;venv/"  "app.py"
 ```
 
 ## Where to find Me
